@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Doc API v4.0 - RPG EPSI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root { --epsi-yellow: #f9b000; --epsi-black: #1a1a1a; }
+        body { background: #f4f4f7; font-family: sans-serif; }
+        header { background: var(--epsi-black); color: white; border-bottom: 4px solid var(--epsi-yellow); }
+    </style>
+</head>
+<body class="pb-10">
+<header class="p-8 mb-8">
+    <h1 class="text-3xl font-bold">Documentation API v4.0</h1>
+    <p class="text-yellow-500">Multiplayer, Scaling & Automation Edition</p>
+</header>
+
+<main class="max-w-4xl mx-auto px-4">
+    <section class="mb-10 p-6 bg-white shadow rounded">
+        <h2 class="text-xl font-bold mb-4 border-b pb-2">Concepts Clés</h2>
+        <ul class="list-disc list-inside text-sm text-gray-600 space-y-2">
+            <li><strong>Multi-joueurs :</strong> Chaque appel nécessite un <code>playerId</code> unique.</li>
+            <li><strong>Scaling :</strong> Le boss gagne 20% de points de vie max à chaque défaite.</li>
+            <li><strong>Automation :</strong> L'endpoint <code>/auto-tick</code> permet d'infliger des dégâts sans riposte.</li>
+        </ul>
+    </section>
+
+    <section class="space-y-4">
+        <h2 class="text-xl font-bold mb-4">Endpoints</h2>
+
+        <div class="p-4 bg-white border rounded">
+            <span class="bg-blue-500 text-white text-[10px] px-2 py-1 rounded font-bold uppercase">GET</span>
+            <code class="ml-2 font-bold">/api/v1/hero/{playerId}</code>
+            <p class="text-xs text-gray-500 mt-2">Récupère l'état complet du joueur et du monde.</p>
+        </div>
+
+        <div class="p-4 bg-white border rounded">
+            <span class="bg-green-500 text-white text-[10px] px-2 py-1 rounded font-bold uppercase">POST</span>
+            <code class="ml-2 font-bold">/api/v1/battle/attack</code>
+            <p class="text-xs text-gray-500 mt-2">Body: <code>{ "playerId": "string", "mode": "SOLO|COOP|PVP", "targetId": "string?" }</code></p>
+        </div>
+
+        <div class="p-4 bg-white border rounded">
+            <span class="bg-green-500 text-white text-[10px] px-2 py-1 rounded font-bold uppercase">POST</span>
+            <code class="ml-2 font-bold">/api/v1/battle/auto-tick</code>
+            <p class="text-xs text-gray-500 mt-2">Applique les dégâts du script automatique (Incrémental).</p>
+        </div>
+
+        <div class="p-4 bg-white border rounded">
+            <span class="bg-green-500 text-white text-[10px] px-2 py-1 rounded font-bold uppercase">POST</span>
+            <code class="ml-2 font-bold">/api/v1/hero/use-item</code>
+            <p class="text-xs text-gray-500 mt-2">Body: <code>{ "playerId": "string", "itemIndex": int }</code></p>
+        </div>
+    </section>
+
+    <section class="mt-10 p-6 bg-gray-900 text-white rounded">
+        <h2 class="text-yellow-500 font-bold mb-4 text-xs tracking-widest uppercase">Évaluation Refactoring</h2>
+        <p class="text-[11px] text-gray-400">Le code fourni est un monolithe. Vous devez extraire :<br>
+            - <strong>Strategy Pattern</strong> pour les modes de combat.<br>
+            - <strong>Command Pattern</strong> pour les effets des items.<br>
+            - <strong>Observer</strong> pour la journalisation des logs en base.</p>
+    </section>
+</main>
+</body>
+</html>

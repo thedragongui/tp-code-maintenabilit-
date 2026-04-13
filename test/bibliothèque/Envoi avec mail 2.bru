@@ -1,0 +1,16 @@
+meta {
+  name: Envoi avec mail 2
+  type: http
+  seq: 3
+}
+
+post {
+  url: http://localhost:8080/api/loans/2/return
+  body: none
+  auth: inherit
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

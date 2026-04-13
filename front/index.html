@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EPSI RPG CORE - v5.8 MULTI-SYNC HD</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=VT323&display=swap');
+        :root { --epsi-yellow: #f9b000; --epsi-black: #1a1a1a; --epsi-dark-grey: #2d2d2d; }
+
+        body {
+            background-color: var(--epsi-black);
+            color: #fff;
+            font-family: 'VT323', monospace;
+            font-size: 1.3rem;
+            min-height: 100vh;
+        }
+
+        /* Container large pour 1920x1080 */
+        .main-container {
+            max-width: 1800px;
+            margin: 0 auto;
+        }
+
+        .epsi-card {
+            background: var(--epsi-dark-grey);
+            border-left: 5px solid var(--epsi-yellow);
+            box-shadow: 10px 10px 0px rgba(0,0,0,0.5);
+        }
+
+        .epsi-btn {
+            background: var(--epsi-yellow);
+            color: #000;
+            font-family: 'Orbitron';
+            font-weight: bold;
+            text-transform: uppercase;
+            transition: all 0.15s;
+            border: none;
+            cursor: pointer;
+            box-shadow: 4px 4px 0px #856404;
+        }
+
+        .epsi-btn:hover:not(:disabled) {
+            transform: translate(-2px, -2px);
+            box-shadow: 6px 6px 0px #856404;
+            filter: brightness(1.1);
+        }
+
+        .epsi-btn:active {
+            transform: translate(2px, 2px);
+            box-shadow: 0px 0px 0px #856404;
+        }
+
+        .epsi-btn:disabled {
+            background: #444;
+            color: #888;
+            box-shadow: none;
+            cursor: not-allowed;
+        }
+
+        /* Barres de progression haute visibilité */
+        .progress-bar-container {
+            height: 26px;
+            background: #000;
+            overflow: hidden;
+            border: 2px solid #444;
+            border-radius: 4px;
+            position: relative;
+        }
+
+        .hp-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff4d4d, #990000);
+            transition: width 0.4s cubic-bezier(0.17, 0.67, 0.83, 0.67);
+            box-shadow: 0 0 15px rgba(255, 77, 77, 0.4);
+        }
+
+        .xp-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--epsi-yellow), #b37e00);
+            transition: width 0.4s cubic-bezier(0.17, 0.67, 0.83, 0.67);
+            box-shadow: 0 0 15px rgba(249, 176, 0, 0.4);
+        }
+
+        .bar-text {
+            position: absolute;
+            width: 100%;
+            text-align: center;
+            font-size: 0.9rem;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 1px 1px 2px #000;
+            line-height: 22px;
+            z-index: 10;
+        }
+
+        .log-box {
+            height: 280px;
+            overflow-y: auto;
+            background: rgba(0,0,0,0.9);
+            font-size: 1.1rem;
+            border: 2px solid #333;
+        }
+
+        .battle-arena {
+            min-height: 550px;
+            background: radial-gradient(circle, #2d2d2d 1px, transparent 1px);
+            background-size: 50px 50px;
+            border: 2px solid #444;
+        }
+
+        .player-item {
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1px solid #333;
+        }
+        .player-item:hover {
+            border-color: var(--epsi-yellow);
+            background: rgba(249, 176, 0, 0.05);
+        }
+        .player-item.targeted {
+            border-color: #ff4d4d;
+            background: rgba(255, 77, 77, 0.15);
+            animation: target-pulse 1.5s infinite;
+        }
+        @keyframes target-pulse {
+            0% { box-shadow: 0 0 2px #ff4d4d; }
+            50% { box-shadow: 0 0 12px #ff4d4d; }
+            100% { box-shadow: 0 0 2px #ff4d4d; }
+        }
+
+        .boss-glow {
+            filter: drop-shadow(0 0 20px rgba(255, 0, 0, 0.6));
+            animation: boss-shake 0.5s infinite;
+        }
+        @keyframes boss-shake {
+            0% { transform: translate(0, 0); }
+            25% { transform: translate(2px, -2px); }
+            50% { transform: translate(-2px, 2px); }
+            75% { transform: translate(2px, 2px); }
+            100% { transform: translate(0, 0); }
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #1a1a1a; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--epsi-yellow); }
+
+        @media (max-width: 1280px) {
+            .battle-arena { min-height: 400px; }
+            .log-box { height: 200px; }
+        }
+    </style>
+</head>
+<body class="p-4 lg:p-10">
+<!-- SETUP OVERLAY (CHOIX DU PROFIL) -->
+<div id="setup-overlay" class="fixed inset-0 bg-black/98 z-50 flex items-center justify-center p-6">
+    <div class="epsi-card p-10 max-w-xl w-full border-t-8 border-yellow-500">
+        <h2 class="text-5xl font-[Orbitron] text-yellow-500 mb-8 uppercase tracking-tighter text-center">Initialisation Système</h2>
+        <div class="space-y-6">
+            <div class="space-y-2">
+                <label class="text-xs uppercase text-gray-400 font-bold tracking-widest">Identifiant Unique du Héros</label>
+                <input id="setup-name" type="text" class="w-full bg-black border-2 border-gray-700 p-4 text-2xl text-white outline-none focus:border-yellow-500" placeholder="Nom de code">
+            </div>
+            <div class="space-y-2">
+                <label class="text-xs uppercase text-gray-400 font-bold tracking-widest">Classe d'Architecture</label>
+                <select id="setup-class" class="w-full bg-black border-2 border-gray-700 p-4 text-xl text-white outline-none focus:border-yellow-500 appearance-none">
+                    <option value="Ingénieur Backend">🛡️ Ingénieur Backend (Tank)</option>
+                    <option value="Architecte Cloud">🧙 Architecte Cloud (Mage)</option>
+                    <option value="Analyste Sécurité">🗡️ Analyste Sécurité (Assassin)</option>
+                </select>
+            </div>
+            <button onclick="Game.completeSetup()" class="epsi-btn w-full py-5 rounded text-2xl mt-4">Déployer sur le Réseau</button>
+        </div>
+    </div>
+</div>
+
+<div class="main-container">
+    <header class="flex flex-col lg:flex-row justify-between items-center border-b-4 border-yellow-600 pb-6 mb-10">
+        <div class="text-center lg:text-left">
+            <h1 class="text-6xl font-bold font-[Orbitron] tracking-tight">
+                <span class="text-yellow-500">EPSI</span> RPG <span class="text-white text-2xl opacity-40">v5.8 MULTI-SYNC</span>
+            </h1>
+            <p class="text-xl text-gray-500 tracking-[0.4em] uppercase font-mono">Distributed Combat Simulator</p>
+        </div>
+        <div class="mt-6 lg:mt-0 flex items-center gap-6">
+            <div class="text-right">
+                <div id="p-id" class="text-xs font-mono text-gray-500 mb-1 tracking-widest">---</div>
+                <div id="api-status" class="bg-red-900/30 text-red-500 px-3 py-1 rounded text-[10px] font-bold border border-red-500 uppercase tracking-widest">Serveur Hors-Ligne</div>
+            </div>
+        </div>
+    </header>
+
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-10">
+        <!-- COLONNE GAUCHE: STATS & ACTIONS -->
+        <div class="lg:col-span-3 space-y-6">
+            <div class="epsi-card p-6">
+                <div class="flex justify-between items-center mb-2 border-b border-gray-700 pb-2">
+                    <div class="text-2xl text-yellow-500 font-bold uppercase tracking-widest" id="hero-title">Chargement...</div>
+                    <div id="hero-level-badge" class="bg-yellow-500 text-black px-2 py-0.5 text-xs font-bold font-[Orbitron]">LVL 1</div>
+                </div>
+                <div id="hero-class" class="text-[10px] text-gray-500 uppercase font-mono mb-4 tracking-widest">---</div>
+
+                <div class="text-center text-[10rem] my-8 bg-black/40 p-6 rounded-lg border border-gray-800 shadow-inner">👤</div>
+
+                <div class="space-y-6">
+                    <div class="space-y-2">
+                        <div class="flex justify-between text-[11px] font-bold uppercase text-gray-400 tracking-wider"><span>Intégrité Physique (PV)</span></div>
+                        <div class="progress-bar-container">
+                            <div class="bar-text" id="p-hp-t">-- / --</div>
+                            <div id="p-hp-f" class="hp-fill" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    <div class="space-y-2">
+                        <div class="flex justify-between text-[11px] font-bold uppercase text-gray-400 tracking-wider"><span>Flux d'Expérience (XP)</span></div>
+                        <div class="progress-bar-container">
+                            <div class="bar-text" id="p-xp-t">0 / 100</div>
+                            <div id="p-xp-f" class="xp-fill" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="space-y-4">
+                <button id="attack-btn" onclick="Game.attack()" class="epsi-btn w-full py-7 rounded text-4xl shadow-2xl tracking-tighter">COMBATTRE</button>
+                <button onclick="Game.upgradeAuto()" class="bg-blue-900/40 hover:bg-blue-800 w-full py-3 text-xs uppercase font-bold text-blue-300 border-2 border-blue-700 rounded-lg transition-all">⚙️ Améliorer Auto-Script (<span id="up-cost">--</span> XP)</button>
+                <button onclick="Game.heal()" class="bg-gray-800/60 hover:bg-gray-700 w-full py-3 text-xs uppercase font-bold text-gray-400 border-2 border-gray-600 rounded-lg">Récupération de Données (Soin)</button>
+            </div>
+        </div>
+
+        <!-- COLONNE CENTRALE: ARENE & LOGS -->
+        <div class="lg:col-span-6 space-y-8">
+            <div class="epsi-card p-10 bg-black flex flex-col items-center justify-center relative battle-arena rounded-2xl shadow-2xl overflow-hidden">
+                <div id="battle-mode-label" class="absolute top-6 left-6 bg-yellow-500 text-black px-4 py-1.5 text-sm font-bold uppercase rounded-full shadow-lg z-20">MODE : SOLO</div>
+
+                <div id="battle-view" class="flex flex-col items-center w-full z-10">
+                    <div id="enemy-sprite" class="text-[14rem] mb-8 transition-all duration-300">👾</div>
+                    <div class="text-center w-full max-w-lg">
+                        <div id="e-name" class="text-red-500 font-bold uppercase tracking-widest text-5xl mb-3 drop-shadow-md">---</div>
+                        <div id="e-lvl-container" class="text-base text-gray-500 mb-8 font-mono uppercase tracking-[0.4em]">Niveau d'Exception : <span id="e-lvl" class="text-white">1</span></div>
+
+                        <div class="space-y-2">
+                            <div class="progress-bar-container h-8 border-red-900/50 shadow-lg">
+                                <div id="e-hp-f" class="hp-fill" style="width: 0%"></div>
+                            </div>
+                            <div id="e-hp-label" class="text-xs text-red-500 font-bold text-right uppercase tracking-[0.2em]">INTÉGRITÉ CIBLE</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="epsi-card p-6">
+                <h3 class="text-xs text-gray-500 font-bold mb-4 uppercase tracking-widest flex justify-between items-center border-b border-gray-800 pb-2">
+                    <span>Journal des Transactions Réseau</span>
+                    <div class="flex items-center gap-2">
+                        <span class="text-[10px] text-green-500 uppercase font-mono">Sync Active</span>
+                        <span id="sync-dot" class="w-2.5 h-2.5 bg-green-500 rounded-full shadow-[0_0_8px_#22c55e]"></span>
+                    </div>
+                </h3>
+                <div id="logs" class="log-box p-4 font-mono leading-relaxed custom-scrollbar"></div>
+            </div>
+        </div>
+
+        <!-- COLONNE DROITE: MULTI & INVENTAIRE -->
+        <div class="lg:col-span-3 space-y-6">
+            <div class="epsi-card p-6">
+                <h3 class="text-yellow-500 text-sm font-bold mb-6 uppercase tracking-widest border-b border-gray-700 pb-2">Topologie du Réseau</h3>
+                <div class="grid grid-cols-3 gap-2 mb-8">
+                    <button onclick="Game.setMode('SOLO')" id="m-solo" class="py-3 bg-gray-800 border-2 border-transparent text-[11px] font-bold rounded uppercase transition-all">Solo</button>
+                    <button onclick="Game.setMode('COOP')" id="m-coop" class="py-3 bg-gray-800 border-2 border-transparent text-[11px] font-bold rounded uppercase transition-all">Coop</button>
+                    <button onclick="Game.setMode('PVP')" id="m-pvp" class="py-3 bg-gray-800 border-2 border-transparent text-[11px] font-bold rounded uppercase transition-all">PvP</button>
+                </div>
+
+                <div class="space-y-4">
+                    <h4 class="text-[11px] text-gray-400 uppercase font-bold tracking-widest flex justify-between">
+                        <span>Noeuds Détectés</span>
+                        <span id="player-count" class="text-yellow-500">0</span>
+                    </h4>
+                    <div id="player-list" class="space-y-3 max-h-[250px] overflow-y-auto pr-2 custom-scrollbar">
+                        <!-- Players rendered here -->
+                    </div>
+                    <p id="pvp-hint" class="text-[10px] text-red-400 italic hidden animate-pulse font-bold">* Cliquez sur un noeud pour le cibler en PvP.</p>
+                </div>
+            </div>
+
+            <div class="epsi-card p-6">
+                <h3 class="text-yellow-500 text-sm font-bold mb-6 uppercase tracking-widest border-b border-gray-700 pb-2">🎒 Pile d'Objets</h3>
+                <div id="inventory" class="grid grid-cols-3 gap-4">
+                    <!-- Inventory slots -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const API = "http://localhost:8080/api/v1";
+    const PID = "USER_" + Math.random().toString(36).substring(7);
+
+    const Game = {
+        mode: 'SOLO',
+        targetId: null,
+        targetData: null,
+        state: null,
+        players: [],
+
+        async init() {
+            document.getElementById('p-id').innerText = "NODE_SESSION_ID: " + PID;
+
+            // Vérifie si le profil est déjà configuré
+            if (localStorage.getItem('rpg_setup_v4')) {
+                document.getElementById('setup-overlay').style.display = 'none';
+            }
+
+            await this.refresh();
+
+            // BOUCLES DE SYNCHRONISATION
+            setInterval(() => this.tick(), 2000);         // Auto-attack
+            setInterval(() => this.loadLogs(), 3000);     // Logs
+            setInterval(() => this.loadPlayers(), 4000);  // Player list (Lobby)
+            setInterval(() => this.refresh(), 2000);      // Mon propre état (Synchronisation passive des dégâts)
+        },
+
+        async completeSetup() {
+            const name = document.getElementById('setup-name').value || "Anonyme";
+            const type = document.getElementById('setup-class').value;
+            try {
+                await fetch(`${API}/hero/setup`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({playerId: PID, name, class: type})
+                });
+                localStorage.setItem('rpg_setup_v4', 'true');
+                document.getElementById('setup-overlay').style.display = 'none';
+                await this.refresh();
+            } catch(e) {
+                console.error("Setup failed. Is the backend running?");
+            }
+        },
+
+        async loadPlayers() {
+            try {
+                const r = await fetch(`${API}/players`);
+                this.players = await r.json();
+                const list = document.getElementById('player-list');
+                document.getElementById('player-count').innerText = this.players.length;
+
+                list.innerHTML = this.players.map(p => {
+                    const isTargeted = this.targetId === p.ID;
+                    const isSelf = p.ID === PID;
+                    if (isTargeted) this.targetData = p;
+
+                    return `
+                            <div onclick="Game.selectTarget('${p.ID}')"
+                                 class="player-item p-3 rounded-lg bg-black/40 text-[11px] flex justify-between items-center ${isTargeted ? 'targeted' : ''}">
+                                <div>
+                                    <div class="font-bold ${isSelf ? 'text-yellow-500' : 'text-blue-400'} uppercase">${p.NAME} ${isSelf ? '(Moi)' : ''}</div>
+                                    <div class="text-gray-500 font-mono">${p.CLASS} | Lvl ${p.LEVEL}</div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-red-500 font-bold">${p.HP} PV</div>
+                                    <div class="w-16 bg-gray-900 h-1.5 rounded-full overflow-hidden mt-1">
+                                        <div class="bg-red-600 h-full" style="width: ${(p.HP/p.MAX_HP*100)}%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                }).join('');
+
+                // Si on est en PvP et qu'on a une cible, on rafraîchit son affichage central
+                if (this.mode === 'PVP' && this.targetId) this.render();
+
+            } catch(e) {}
+        },
+
+        selectTarget(id) {
+            if (id === PID || this.mode !== 'PVP') return;
+            this.targetId = (this.targetId === id) ? null : id;
+            if (!this.targetId) this.targetData = null;
+            this.loadPlayers();
+            this.render();
+        },
+
+        async refresh() {
+            try {
+                const r = await fetch(`${API}/hero/${PID}`);
+                if(!r.ok) throw new Error();
+                this.state = await r.json();
+                this.render();
+                const status = document.getElementById('api-status');
+                status.innerText = "Serveur En Ligne";
+                status.className = "bg-green-900/30 text-green-500 px-3 py-1 rounded text-[10px] font-bold border border-green-500 uppercase tracking-widest";
+            } catch(e) {
+                const status = document.getElementById('api-status');
+                status.innerText = "Serveur Hors-Ligne";
+                status.className = "bg-red-900/30 text-red-500 px-3 py-1 rounded text-[10px] font-bold border border-red-500 uppercase tracking-widest";
+            }
+        },
+
+        async attack() {
+            const btn = document.getElementById('attack-btn');
+            btn.disabled = true;
+            try {
+                const r = await fetch(`${API}/battle/attack`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        playerId: PID,
+                        mode: this.mode,
+                        targetId: (this.mode === 'PVP' ? this.targetId : null)
+                    })
+                });
+                this.state = await r.json();
+                if (this.mode === 'PVP') await this.loadPlayers();
+                this.render();
+            } catch(e) {}
+            setTimeout(() => btn.disabled = false, 100);
+        },
+
+        async tick() {
+            if(!this.state || !this.state.player || this.state.player.autoAttackLevel <= 0) return;
+            try {
+                const r = await fetch(`${API}/battle/auto-tick`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({playerId: PID})
+                });
+                this.state = await r.json();
+                if (this.mode === 'PVP') await this.loadPlayers();
+                this.render();
+            } catch(e) {}
+        },
+
+        async upgradeAuto() {
+            try {
+                await fetch(`${API}/hero/upgrade-auto`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({playerId: PID})
+                });
+                await this.refresh();
+            } catch(e) {}
+        },
+
+        async useItem(idx) {
+            try {
+                const r = await fetch(`${API}/hero/use-item`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({playerId: PID, itemIndex: idx})
+                });
+                const d = await r.json();
+                this.state = d.state || d;
+                this.render();
+            } catch(e) {}
+        },
+
+        async setMode(m) {
+            this.mode = m;
+            this.targetId = null;
+            this.targetData = null;
+            document.getElementById('battle-mode-label').innerText = "MODE : " + m;
+            document.getElementById('pvp-hint').style.display = (m === 'PVP' ? 'block' : 'none');
+
+            // Force le backend à mettre à jour mon mode
+            try {
+                await fetch(`${API}/hero/setup`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({playerId: PID, name: this.state.player.name, class: this.state.player.class, mode: m})
+                });
+            } catch(e) {}
+
+            await this.refresh();
+        },
+
+        async heal() {
+            try {
+                const r = await fetch(`${API}/hero/heal`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({playerId: PID})
+                });
+                this.state = await r.json();
+                this.render();
+            } catch(e) {}
+        },
+
+        async loadLogs() {
+            try {
+                const r = await fetch(`${API}/logs`);
+                const l = await r.json();
+                document.getElementById('logs').innerHTML = l.map(log =>
+                    `<div class="mb-2 text-gray-400 border-b border-gray-800/50 pb-2 text-[12px]">
+                            <span class="text-yellow-600 font-bold mr-2">LOG_ENTRY ></span> ${log.msg || log.MSG}
+                        </div>`
+                ).join('');
+            } catch(e) {}
+        },
+
+        render() {
+            if (!this.state || !this.state.player || !this.state.enemy) return;
+            const {player: p, enemy: e} = this.state;
+
+            // Mes Données (Sync)
+            document.getElementById('hero-title').innerText = p.name;
+            document.getElementById('hero-level-badge').innerText = "LVL " + p.level;
+            document.getElementById('hero-class').innerText = p.class;
+            document.getElementById('p-hp-t').innerText = p.hp + " / " + p.maxHp + " PV";
+            document.getElementById('p-hp-f').style.width = (p.hp/p.maxHp*100) + "%";
+            document.getElementById('p-xp-t').innerText = p.xp + " / " + (p.nextLevelXp || 100) + " XP";
+            document.getElementById('p-xp-f').style.width = (p.xp/(p.nextLevelXp || 100)*100) + "%";
+            document.getElementById('up-cost').innerText = Math.round(100 * Math.pow(1.3, p.autoAttackLevel));
+
+            // Rendu de l'Arène
+            const enemySprite = document.getElementById('enemy-sprite');
+            const enemyName = document.getElementById('e-name');
+            const enemyLvl = document.getElementById('e-lvl');
+            const enemyHpFill = document.getElementById('e-hp-f');
+            const enemyHpLabel = document.getElementById('e-hp-label');
+
+            if (this.mode === 'PVP') {
+                if (this.targetId && this.targetData) {
+                    enemySprite.innerText = "👤";
+                    enemySprite.className = "text-[14rem] mb-8";
+                    enemyName.innerText = this.targetData.NAME;
+                    enemyName.className = "text-yellow-500 font-bold uppercase tracking-widest text-5xl mb-3";
+                    enemyLvl.innerText = this.targetData.LEVEL;
+                    enemyHpFill.style.width = (this.targetData.HP / this.targetData.MAX_HP * 100) + "%";
+                    enemyHpLabel.innerText = "INTÉGRITÉ ADVERSAIRE : " + this.targetData.HP;
+                } else {
+                    enemySprite.innerText = "⚔️";
+                    enemySprite.className = "text-[14rem] mb-8 opacity-20";
+                    enemyName.innerText = "EN ATTENTE DE CIBLE";
+                    enemyName.className = "text-gray-700 font-bold uppercase tracking-widest text-3xl mb-3";
+                    enemyLvl.innerText = "--";
+                    enemyHpFill.style.width = "0%";
+                    enemyHpLabel.innerText = "SÉLECTIONNEZ UN NOEUD RÉSEAU";
+                }
+            } else {
+                const isBoss = e.level > 0 && e.level % 10 === 0;
+                enemySprite.innerText = isBoss ? "👹" : (e.sprite || "👾");
+                enemySprite.className = "text-[14rem] mb-8 " + (isBoss ? "boss-glow" : "");
+                enemyName.innerText = e.name;
+                enemyName.className = (isBoss ? "text-red-600" : "text-red-500") + " font-bold uppercase tracking-widest text-5xl mb-3";
+                enemyLvl.innerText = e.level;
+                enemyHpFill.style.width = (e.hp/e.maxHp*100) + "%";
+                enemyHpLabel.innerText = (isBoss ? "INTÉGRITÉ BOSS : " : "INTÉGRITÉ CIBLE : ") + e.hp;
+            }
+
+            // Inventaire
+            const inv = document.getElementById('inventory');
+            inv.innerHTML = '';
+            p.inventory.forEach((item, idx) => {
+                const slot = document.createElement('div');
+                slot.className = "w-full aspect-square bg-black border-2 border-gray-700 flex items-center justify-center cursor-pointer text-4xl hover:border-yellow-500 hover:bg-gray-900 transition-all rounded-lg shadow-lg";
+                slot.innerText = item;
+                slot.onclick = () => this.useItem(idx);
+                inv.appendChild(slot);
+            });
+
+            // Style des boutons de mode
+            ['solo','coop','pvp'].forEach(id => {
+                const el = document.getElementById('m-'+id);
+                if (id === this.mode.toLowerCase()) {
+                    el.classList.add('border-yellow-500', 'bg-yellow-500/20', 'text-yellow-500');
+                    el.classList.remove('bg-gray-800');
+                } else {
+                    el.classList.remove('border-yellow-500', 'bg-yellow-500/20', 'text-yellow-500');
+                    el.classList.add('bg-gray-800');
+                }
+            });
+        }
+    };
+
+    window.onload = () => Game.init();
+</script>
+</body>
+</html>

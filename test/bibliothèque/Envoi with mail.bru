@@ -1,0 +1,16 @@
+meta {
+  name: Envoi with mail
+  type: http
+  seq: 5
+}
+
+post {
+  url: http://localhost:8080/api/loans/1/return-mail
+  body: none
+  auth: inherit
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
