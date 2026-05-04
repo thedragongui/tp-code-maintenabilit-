@@ -110,3 +110,177 @@ Le fichier de tests a ete mis a jour pour couvrir:
 
 ## Conclusion
 Le TP a ete traite avec une approche "audit + correction": reduction de la surface d'attaque, validation stricte des entrees, protection des operations sensibles, et ajout de tests cibles pour limiter les regressions.
+
+---
+
+# Complement TP KISS - Keep It Simple, Stupid
+
+## Objectif traite
+Ajout d'une API `POST /api/tab/calculate` avec la regle metier:
+- remise de 10% si la commande contient au moins un `MEAL` et au moins un `DRINK`,
+- sinon aucun rabais.
+
+## Reimplementation KISS
+La logique de calcul est centralisee dans un service unique avec une methode lisible:
+- somme des prix,
+- verification de la condition `MEAL && DRINK`,
+- application conditionnelle de la remise.
+
+Aucun pattern Factory/Decorator/Strategy n'a ete introduit.
+
+## Fichiers Java crees (6)
+1. `src/main/java/com/taverne/kiss/controller/TabController.java`
+   Expose l'endpoint HTTP et valide les donnees d'entree.
+2. `src/main/java/com/taverne/kiss/service/TabCalculationService.java`
+   Contient la logique metier de calcul du total.
+3. `src/main/java/com/taverne/kiss/model/ItemType.java`
+   Enum metier minimale pour typer les articles (`MEAL`, `DRINK`, `OTHER`).
+4. `src/main/java/com/taverne/kiss/model/TabItem.java`
+   Modele d'un article de commande (nom, type, prix).
+5. `src/main/java/com/taverne/kiss/model/TabCalculationRequest.java`
+   DTO de requete pour transporter la liste d'articles.
+6. `src/main/java/com/taverne/kiss/model/TabCalculationResponse.java`
+   DTO de reponse pour retourner le total calcule.
+
+## Validation fonctionnelle
+- Cas `MEAL + DRINK`: remise appliquee.
+- Cas `MEAL` seul: pas de remise.
+- Tests automatises ajoutes dans:
+  `src/test/java/com/taverne/kiss/controller/TabControllerTest.java`
+
+---
+
+# Complement TP DRY - Don't Repeat Yourself
+
+## Objectif traite
+Refactoriser les paiements de guildes pour supprimer la duplication tout en conservant les 3 routes:
+- `POST /api/payment/warrior`
+- `POST /api/payment/mage`
+- `POST /api/payment/rogue`
+
+## Analyse de la qualite du code cible
+Le code attendu par le TP est typiquement fragile quand les 3 routes embarquent chacune la formule complete:
+- duplication de `price * quantity`,
+- duplication du taux de taxe du Roi (5%),
+- risque d'incoherence lors d'une evolution metier.
+
+Avec ce type d'architecture, changer une regle metier impose de modifier plusieurs endroits: c'est une violation DRY.
+
+## Refactoring applique
+La logique commune a ete extraite dans un service dedie `@Service`:
+- le controleur ne contient plus de formule en dur,
+- les routes gardent leurs specificites via delegation au service,
+- la formule `price * quantity` n'existe qu'une seule fois,
+- le taux `0.05` n'existe qu'une seule fois (constante metier).
+
+## Fichiers Java crees (3)
+1. `src/main/java/com/taverne/dry/model/PaymentRequest.java`
+   DTO d'entree (prix + quantite) utilise par les 3 routes.
+2. `src/main/java/com/taverne/dry/service/PaymentCalculationService.java`
+   Unique source de verite pour le calcul (subtotal, taxe, surcharge).
+3. `src/main/java/com/taverne/dry/controller/PaymentController.java`
+   Expose les 3 endpoints et delegue integralement la logique au service.
+
+## Validation de regression
+Tests automatises ajoutes:
+- `src/test/java/com/taverne/dry/controller/PaymentControllerTest.java`
+
+Cas verifies:
+- Warrior (`10 x 3 + 5% + 2`) => `33.50`
+- Mage (`10 x 3`) => `30.00`
+- Rogue (`10 x 3 + 5%`) => `31.50`
+
+Build global valide:
+- `mvn test`
+- `Tests run: 40, Failures: 0, Errors: 0, Skipped: 0`
+
+---
+
+# Complement TP SOLID - Les 5 principes
+
+## Appreciation globale de la base cible
+Le code cible d'origine (type "god class") concentre plusieurs responsabilites et couple le metier a des details techniques, ce qui freine l'evolutivite et les tests.
+Le refactoring a ete conduit principe par principe pour rendre la base maintenable, extensible et testable.
+
+## S - Single Responsibility Principle
+Refactoring applique:
+- `TavernManager` ne fait plus que l'orchestration HTTP.
+- `InventoryService` gere uniquement le stock.
+- `PricingService` gere uniquement le calcul de prix.
+- `OrderService` gere l'enregistrement logique de commande et la notification.
+
+Une classe = une raison principale de changer.
+
+## O - Open / Closed Principle
+Refactoring applique:
+- creation de l'abstraction `PricingRule` avec `apply(double baseTotal)`.
+- implementations separees:
+  - `KingTaxRule` (+5%)
+  - `NightSurchargeRule` (+10% apres 22h)
+  - `WeekendDiscountRule` (-5% le week-end)
+- `PricingService` itere sur `List<PricingRule>` sans connaitre les classes concretes.
+
+Ajout d'une regle nouvelle sans modification de `PricingService`: OCP respecte.
+
+## L - Liskov Substitution Principle
+Refactoring applique:
+- `ConsumableItem#isSafeToConsume()` retourne `true` par defaut.
+- `PoisonousDrink extends ConsumableItem` retourne `false` sans exception.
+- verification par code client sur `List<ConsumableItem>` mixte.
+
+Substitution possible sans casser le comportement attendu.
+
+## I - Interface Segregation Principle
+Refactoring applique:
+- interface monolithique `IItemActions` retiree.
+- interfaces ciblees:
+  - `ICookable` (`cook`, `roast`)
+  - `IPourable` (`pourIntoMug`)
+- classes specialisees:
+  - `Bread implements ICookable`
+  - `Ale implements IPourable`
+
+Chaque classe depend uniquement des methodes qui la concernent.
+
+## D - Dependency Inversion Principle
+Refactoring applique:
+- abstraction `INotificationRepository`.
+- implementations:
+  - `InMemoryNotificationRepository`
+  - `SqlNotificationRepository`
+- `OrderService` depend de l'interface et la recoit par injection constructeur.
+- aucun `new XyzRepository()` dans `OrderService`.
+
+Le module metier depend d'une abstraction et non d'un detail de persistance.
+
+## Fichiers Java ajoutes (SOLID)
+- `src/main/java/com/taverne/solid/controller/TavernManager.java`
+- `src/main/java/com/taverne/solid/service/OrderService.java`
+- `src/main/java/com/taverne/solid/service/InventoryService.java`
+- `src/main/java/com/taverne/solid/service/PricingService.java`
+- `src/main/java/com/taverne/solid/pricing/PricingRule.java`
+- `src/main/java/com/taverne/solid/pricing/KingTaxRule.java`
+- `src/main/java/com/taverne/solid/pricing/NightSurchargeRule.java`
+- `src/main/java/com/taverne/solid/pricing/WeekendDiscountRule.java`
+- `src/main/java/com/taverne/solid/repository/INotificationRepository.java`
+- `src/main/java/com/taverne/solid/repository/InMemoryNotificationRepository.java`
+- `src/main/java/com/taverne/solid/repository/SqlNotificationRepository.java`
+- `src/main/java/com/taverne/solid/interfaces/ICookable.java`
+- `src/main/java/com/taverne/solid/interfaces/IPourable.java`
+- `src/main/java/com/taverne/solid/model/OrderLine.java`
+- `src/main/java/com/taverne/solid/model/OrderRequest.java`
+- `src/main/java/com/taverne/solid/model/OrderResponse.java`
+- `src/main/java/com/taverne/solid/model/ConsumableItem.java`
+- `src/main/java/com/taverne/solid/model/PoisonousDrink.java`
+- `src/main/java/com/taverne/solid/model/Bread.java`
+- `src/main/java/com/taverne/solid/model/Ale.java`
+- `src/main/java/com/taverne/solid/config/SolidClockConfiguration.java`
+
+## Tests ajoutes (SOLID)
+- `src/test/java/com/taverne/solid/controller/TavernManagerTest.java`
+- `src/test/java/com/taverne/solid/pricing/PricingRulesTest.java`
+- `src/test/java/com/taverne/solid/model/SolidContractsTest.java`
+
+## Validation
+- `mvn test` execute avec succes apres refactoring SOLID.
+- resultat global actuel: `Tests run: 48, Failures: 0, Errors: 0, Skipped: 0`.
